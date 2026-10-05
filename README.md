@@ -1,137 +1,192 @@
-# CStyle E-commerce Backend API
+# CStyle — Backend API
 
-Backend API for CStyle E-commerce Admin Panel built with Node.js, Express, and MongoDB.
+REST API for the CStyle e-commerce store (storefront + admin panel), built with **Node.js, Express and MongoDB (Mongoose)**.
+The storefront lives in the sibling repository `cstyle-frontend`.
 
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js (v18 or higher)
-- MongoDB Atlas account or local MongoDB
-- npm or yarn
-
-### Installation
-
-1. Navigate to backend folder:
-```bash
-cd backend
+```
+                    ┌──────────────────┐
+                    │     FRONTEND     │  React + Vite (cstyle-frontend)
+                    │ CStyle Storefront│  storefront + /admin
+                    └────────┬─────────┘
+                         REST API (JWT)
+                    ┌────────▼─────────┐
+                    │     BACKEND      │  Express (this repo)
+                    └───────┬──────────┘
+             ┌──────────────┴──────────────┐
+       ┌─────▼─────┐                 ┌─────▼─────┐
+       │  MongoDB  │                 │  uploads/ │  WebP images served at /uploads
+       └───────────┘                 └───────────┘
 ```
 
-2. Install dependencies:
+## Quick start
+
 ```bash
 npm install
+cp .env.example .env        # then edit .env (see below)
+npm run db:local            # optional: local MongoDB in ./.mongo-data (separate terminal)
+npm run seed                # admin, customer, categories, 18 products + images, coupons, banners
+npm run dev                 # API on http://localhost:5000 (auto-restarts)
+npm test                    # end-to-end API checks against the running server
 ```
 
-3. Configure environment variables:
-- Copy `.env.example` to `.env`
-- Update the MongoDB connection string with your password:
+Requires Node.js 18.18+.
+
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Start with nodemon |
+| `npm start` | Start for production |
+| `npm run seed` | Create sample data. Safe to re-run: existing records (matched by slug / SKU / code / email) are left alone |
+| `npm run seed:fresh` | Wipe catalog, orders, carts, wishlists, reviews, coupons and banners, then seed. Refuses to run when `NODE_ENV=production` |
+| `npm run db:local` | Run a local MongoDB without installing it (downloads the official MongoDB binary once, keeps data in `.mongo-data/`) |
+| `npm test` | API end-to-end tests (`tests/api.test.js`); needs a running, seeded server |
+
+## Environment (`.env`)
+
+| Variable | Purpose |
+| --- | --- |
+| `MONGODB_URI` | Connection string. Local: `mongodb://127.0.0.1:27017/cstyle`. Atlas: `mongodb+srv://user:pass@cluster.mongodb.net/cstyle?retryWrites=true&w=majority` |
+| `MONGODB_DB_NAME` | Optional database name override |
+| `JWT_SECRET` | Signs login tokens. Required; at least 32 chars in production |
+| `JWT_EXPIRES_IN` | Token lifetime (default `7d`) |
+| `FRONTEND_URL` | Allowed CORS origins, comma separated |
+| `API_BASE_URL` | Public URL of this API; used to build absolute image URLs |
+| `UPLOAD_DIR` | Where images are stored (default `uploads`) |
+| `MAX_FILE_SIZE` | Max upload size in bytes (default 5 MB) |
+| `CURRENCY`, `SHIPPING_FEE`, `FREE_SHIPPING_THRESHOLD` | Store pricing rules (LKR) |
+| `SEED_ADMIN_*`, `SEED_CUSTOMER_*` | Accounts created by `npm run seed` |
+
+### MongoDB setup
+
+* **Local:** `npm run db:local` (no install needed), or install MongoDB Community and use `mongodb://127.0.0.1:27017/cstyle`.
+* **Atlas:** create a cluster, add a database user, allow your IP (or `0.0.0.0/0` for hosted backends) under *Network Access*, then paste the `mongodb+srv://…` string into `MONGODB_URI`. Indexes are created automatically on start-up.
+
+## Project structure
+
 ```
-MONGODB_URI=mongodb+srv://cstyle:YOUR_PASSWORD@cluster0.opigyca.mongodb.net/cstyle?retryWrites=true&w=majority&appName=Cluster0
+config/        env.js (validated settings), database.js
+controllers/   auth, products, catalog (categories & banners), reviews, uploads, cart & wishlist, orders, admin, inbox
+middleware/    auth (JWT, roles), validate (zod), sanitize (NoSQL injection), error (consistent JSON errors)
+models/        User, Product, Category, Cart, Wishlist, Order, Coupon, Review, Banner, Counter, Inbox (contact + newsletter)
+routes/        index.js — every endpoint in one place
+services/      imageService (multer + sharp), pricingService (server-side totals, coupons), inventoryService (atomic stock)
+validators/    zod request schemas
+scripts/       seed.js, sampleImages.js (generated garment images), db-local.js
+tests/         api.test.js
+uploads/       products/ categories/ banners/  (created automatically, git-ignored)
 ```
 
-4. Start the development server:
-```bash
-npm run dev
-```
+## Image uploads and storage
 
-The API will be running at `http://localhost:5000`
+1. The admin uploads JPG / JPEG / PNG / WEBP files to `/api/uploads/*` (admin token required).
+2. Multer keeps the file in memory and checks the MIME type, extension and size (`MAX_FILE_SIZE`).
+3. Sharp verifies the bytes really are an image, auto-rotates, resizes (max 1600×2000 for products), strips metadata and saves **WebP**.
+4. Files get safe generated names — the original file name is never used:
+   `uploads/products/product-68f23a91-main.webp`, `product-68f23a91-1.webp`, `…-2.webp`
+5. MongoDB stores the server-relative path (`/uploads/products/…`). Every API response converts it into a full URL using `API_BASE_URL`, e.g. `http://localhost:5000/uploads/products/product-68f23a91-1.webp`. Changing domains only needs an `.env` change.
+6. Images are served by Express at `GET /uploads/<folder>/<file>`. Images removed from a product (or replaced on a category/banner) are deleted from disk when no other product uses them.
 
-## 📁 Project Structure
+Seed images are generated by `scripts/sampleImages.js` and go through the same pipeline, e.g. `uploads/products/cs-sh-001-01.webp`.
 
-```
-backend/
-├── config/
-│   └── database.js       # MongoDB connection
-├── models/
-│   ├── Product.js        # Product schema
-│   ├── Order.js          # Order schema
-│   └── Customer.js       # Customer schema
-├── routes/
-│   ├── productRoutes.js  # Product endpoints
-│   ├── orderRoutes.js    # Order endpoints
-│   ├── customerRoutes.js # Customer endpoints
-│   ├── inventoryRoutes.js # Inventory endpoints
-│   ├── authRoutes.js     # Authentication endpoints
-│   └── analyticsRoutes.js # Analytics endpoints
-├── .env                  # Environment variables
-├── .env.example          # Example environment file
-├── server.js             # Main server file
-└── package.json
-```
+**Production note:** the local `uploads/` folder must be on persistent storage (a mounted volume on Railway/Render, or a VPS disk). For serverless/ephemeral hosts, swap `processAndStoreImage` / `deleteStoredImage` in `services/imageService.js` for an object store such as S3 or Cloudinary.
 
-## 🛣️ API Endpoints
+## API
+
+All responses are JSON: `{ "success": true, "data": …, "pagination"?: { page, limit, total, totalPages } }` or
+`{ "success": false, "message": "…", "errors"?: [{ field, message }] }` with status 400 / 401 / 403 / 404 / 409 / 413 / 422 / 500.
+Authenticated requests send `Authorization: Bearer <token>`.
+
+### Auth
+| Method | Path | Access |
+| --- | --- | --- |
+| POST | `/api/auth/register` | public — `{ name, email, password, phone? }` → `{ token, user }` |
+| POST | `/api/auth/login` | public — `{ email, password }` → `{ token, user }` |
+| POST | `/api/auth/logout` | user — revokes all of the user's tokens |
+| GET / PUT | `/api/auth/me` | user — profile, phone, addresses |
+| PUT | `/api/auth/password` | user — `{ currentPassword, newPassword }` |
 
 ### Products
-- `GET /api/products` - Get all products
-- `GET /api/products/:id` - Get single product
-- `POST /api/products` - Create product
-- `PUT /api/products/:id` - Update product
-- `DELETE /api/products/:id` - Delete product
-- `PATCH /api/products/:id/stock` - Update stock
+| Method | Path | Access |
+| --- | --- | --- |
+| GET | `/api/products` | public — query: `page, limit (≤100), search, category (slug/name/id), subCategory, gender, minPrice, maxPrice, size, color, tag, featured, newArrival, onSale, inStock, lowStock, ids, exclude, sort` (`newest, oldest, price-asc, price-desc, name, rating, popular, best-selling, stock`). Admins may add `status=active|inactive|deleted|all` |
+| GET | `/api/products/suggestions?q=` | public — search suggestions |
+| GET | `/api/products/:id` | public — id or slug |
+| GET | `/api/products/slug/:slug` | public |
+| GET | `/api/products/:id/related` | public |
+| POST | `/api/products/:id/view` | public — view count + recently viewed for logged-in users |
+| GET / POST | `/api/products/:id/reviews` | public / user |
+| DELETE | `/api/reviews/:reviewId` | author or admin |
+| POST | `/api/products` | admin |
+| PUT | `/api/products/:id` | admin (partial updates allowed) |
+| PATCH | `/api/products/:id/status` | admin — `{ active }` |
+| PATCH | `/api/products/:id/thumbnail` | admin — `{ url }` sets the primary image |
+| DELETE | `/api/products/:id/images` | admin — `{ url }` removes one image |
+| DELETE | `/api/products/:id` | admin — soft delete |
+| PATCH | `/api/products/:id/restore` | admin |
 
-### Orders
-- `GET /api/orders` - Get all orders
-- `GET /api/orders/:orderId` - Get single order
-- `POST /api/orders` - Create order
-- `PATCH /api/orders/:orderId/status` - Update order status
-- `DELETE /api/orders/:orderId` - Delete order
+Product responses include `images` (full URLs), `thumbnail`, `price`, `salePrice`, `finalPrice`, `onSale`, `discountPercent`, `stock`, `stockStatus`, `variants [{ _id, sku, size, color, stock }]`, `colors [{ name, hex }]`, `sizes`, `specifications`, `tags`, `ratingAverage`, `ratingCount`, `category { name, slug }`.
 
-### Customers
-- `GET /api/customers` - Get all customers
-- `GET /api/customers/:id` - Get single customer
-- `POST /api/customers` - Create customer
-- `PUT /api/customers/:id` - Update customer
-- `DELETE /api/customers/:id` - Delete customer
+### Uploads (admin)
+| Method | Path | Body (multipart) |
+| --- | --- | --- |
+| POST | `/api/uploads/product` | `image` — one file (thumbnail) |
+| POST | `/api/uploads/products` | `images` — up to 10 files |
+| POST | `/api/uploads/category` | `image` |
+| POST | `/api/uploads/banner` | `image` |
 
-### Inventory
-- `GET /api/inventory/summary` - Get inventory summary
-- `GET /api/inventory/products` - Get products inventory
-- `PATCH /api/inventory/products/:id/variants` - Update variant stock
+Returns `{ url, path, filename, width, height, size }` (or an array).
 
-### Analytics
-- `GET /api/analytics/dashboard` - Get dashboard analytics
-- `GET /api/analytics/sales` - Get sales data
+### Catalog
+`GET /api/categories` (with product counts), `GET /api/categories/:idOrSlug`, `POST|PUT|DELETE /api/categories/:id` (admin) ·
+`GET /api/banners?placement=hero|promo`, `POST|PUT|DELETE /api/banners/:id` (admin) · `GET /api/config` (currency, shipping rules).
 
-### Authentication
-- `POST /api/auth/login` - User login
-- `POST /api/auth/register` - User registration
+### Cart & wishlist (logged-in users; guests keep them in the browser and they merge on login)
+`GET /api/cart` · `POST /api/cart/items { productId, size, color | variantId, quantity }` · `PATCH /api/cart/items/:itemId { quantity }` ·
+`DELETE /api/cart/items/:itemId` · `DELETE /api/cart` · `POST /api/cart/merge { items }` ·
+`GET /api/wishlist` · `POST|DELETE /api/wishlist/:productId` · `POST /api/wishlist/merge { productIds }` · `GET /api/users/me/recently-viewed`
 
-## 🔧 Environment Variables
+### Checkout & orders
+| Method | Path | Access |
+| --- | --- | --- |
+| POST | `/api/orders/quote` | public — price preview `{ items, couponCode?, email? }` |
+| POST | `/api/coupons/validate` | public — `{ code, items, email? }` |
+| POST | `/api/orders` | guests and customers — `{ items, customer { name, email, phone }, shippingAddress, billingAddress?, paymentMethod: cod|bank_transfer, couponCode?, notes? }` |
+| GET | `/api/orders/my` | user |
+| GET | `/api/orders/:id` | owner or admin (id or order number) |
+| GET | `/api/orders/track?orderNumber=&email=` | public (guest tracking) |
+| PATCH | `/api/orders/:id/cancel` | owner, while pending/confirmed |
+| GET | `/api/orders?status=&search=&page=` | admin |
+| PATCH | `/api/orders/:id/status` | admin — `{ orderStatus?, paymentStatus?, note? }` |
 
-| Variable | Description |
-|----------|-------------|
-| `MONGODB_URI` | MongoDB connection string |
-| `PORT` | Server port (default: 5000) |
-| `NODE_ENV` | Environment (development/production) |
-| `JWT_SECRET` | Secret key for JWT tokens |
-| `FRONTEND_URL` | Frontend URL for CORS |
+Prices, discounts and shipping are always recalculated on the server; prices sent by the browser are ignored.
+Order statuses: `pending → confirmed → processing → shipped → delivered`, or `cancelled`.
 
-## 📦 Dependencies
+**Inventory:** stock is deducted atomically per variant when the order is placed (so two shoppers can never buy the last item),
+and returned to stock when an order is cancelled (by the customer or an admin). Coupon usage is released on cancellation too.
 
-- **express** - Web framework
-- **mongoose** - MongoDB ODM
-- **cors** - Enable CORS
-- **dotenv** - Environment variables
-- **bcryptjs** - Password hashing
-- **jsonwebtoken** - JWT authentication
-- **multer** - File uploads
+### Coupons (admin)
+`GET|POST /api/coupons`, `PUT|DELETE /api/coupons/:id`, `GET /api/coupons/public` (active codes for the storefront).
+Fields: `code, type (percentage|fixed), value, minimumAmount, maxDiscount, expiryDate, active, usageLimit, firstOrderOnly`.
 
-## 🔐 Security Notes
+### Admin
+`GET /api/admin/dashboard?range=day|week|month|year` (totals, revenue, pending orders, low stock, recent orders, top products) ·
+`GET /api/admin/sales?range=` (daily revenue/orders) · `GET /api/admin/customers` · `PATCH /api/admin/customers/:id { role?, active? }` ·
+`GET /api/admin/messages`, `PATCH /api/admin/messages/:id` (contact form inbox)
 
-1. Change the `JWT_SECRET` in `.env` to a secure random string
-2. Never commit the `.env` file to version control
-3. Use HTTPS in production
-4. Implement proper authentication middleware
-5. Validate and sanitize all inputs
+### Contact & newsletter
+`POST /api/contact { name, email, phone?, subject?, message }` · `POST /api/newsletter { email }`
 
-## 🚀 Deployment
+## Security
 
-For production deployment:
-1. Set `NODE_ENV=production`
-2. Use a secure JWT secret
-3. Enable MongoDB IP whitelist
-4. Use environment variables for all sensitive data
-5. Implement rate limiting and security headers
+* Passwords hashed with bcrypt (cost 12); JWTs signed with `JWT_SECRET`; logout and password change revoke old tokens.
+* Role-based access (`customer`, `admin`) on every write route; admins cannot demote or disable themselves.
+* Request validation with zod; MongoDB operator keys stripped from input; search input is regex-escaped.
+* Helmet security headers, CORS allow-list, JSON body limit, rate limits on login/register and checkout.
+* Uploads: type, extension, size and content checks; images re-encoded; generated file names; no path traversal.
+* Server errors are logged; users only see safe messages.
 
-## 📝 License
+## Sample data
 
-ISC
+`npm run seed` creates: an admin and a sample customer (from the `SEED_*` variables), 6 categories with images,
+18 products (shirts, linen shirts, polos, tees, shorts, trousers) with 4 generated images each, sizes, colours,
+per-variant stock (some low), sale and featured products, 4 coupons (`CSTYLE10`, `SUMMER20`, `NEWUSER`, expired `FLASH15`),
+3 banners, and 3 sample orders plus a review for the sample customer.
