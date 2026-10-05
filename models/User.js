@@ -26,7 +26,11 @@ const userSchema = new mongoose.Schema({
     },
     passwordHash: { type: String, required: true, select: false },
     phone: { type: String, trim: true, maxlength: 30 },
-    role: { type: String, enum: ['customer', 'admin'], default: 'customer', index: true },
+    // admin = full back-office access; staff = back-office user limited by staffRole permissions.
+    role: { type: String, enum: ['customer', 'admin', 'staff'], default: 'customer', index: true },
+    staffRole: { type: mongoose.Schema.Types.ObjectId, ref: 'StaffRole', default: null },
+    // Link to the HR employee record (self-service: own payslips, leave requests).
+    employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', default: null },
     addresses: [addressSchema],
     active: { type: Boolean, default: true },
     tokenVersion: { type: Number, default: 0, select: false },

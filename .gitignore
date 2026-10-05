@@ -8,3 +8,4 @@ uploads/
 .env.*
 !.env.example
 .mongo-data/
+private_files/
