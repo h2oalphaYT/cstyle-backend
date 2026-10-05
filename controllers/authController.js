@@ -2,9 +2,17 @@ import User from '../models/User.js';
 import ApiError from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/helpers.js';
 import { signToken } from '../middleware/auth.js';
+import { loadAccess } from '../payroll/permissions.js';
 
-const authResponse = (res, user, status = 200) => {
-    res.status(status).json({ success: true, data: { token: signToken(user), user } });
+// Back-office permissions travel with the user so the admin panel can show the right menus.
+const withAccess = async (req, user) => {
+    req.user = user;
+    const access = await loadAccess(req);
+    return { ...user.toJSON(), permissions: [...access.permissions], dataScope: access.dataScope, staffRoleName: access.roleName };
+};
+
+const authResponse = async (req, res, user, status = 200) => {
+    res.status(status).json({ success: true, data: { token: signToken(user), user: await withAccess(req, user) } });
 };
 
 // POST /api/auth/register
@@ -14,7 +22,7 @@ export const register = asyncHandler(async (req, res) => {
     const user = new User({ name, email, phone, role: 'customer' });
     await user.setPassword(password);
     await user.save();
-    authResponse(res, user, 201);
+    await authResponse(req, res, user, 201);
 });
 
 // POST /api/auth/login
@@ -26,7 +34,7 @@ export const login = asyncHandler(async (req, res) => {
     if (!user.active) throw ApiError.forbidden('This account has been disabled');
     user.lastLoginAt = new Date();
     await user.save();
-    authResponse(res, user);
+    await authResponse(req, res, user);
 });
 
 // POST /api/auth/logout — revokes every token issued to this user so far.
@@ -37,7 +45,7 @@ export const logout = asyncHandler(async (req, res) => {
 
 // GET /api/auth/me
 export const me = asyncHandler(async (req, res) => {
-    res.json({ success: true, data: req.user });
+    res.json({ success: true, data: await withAccess(req, req.user) });
 });
 
 // PUT /api/auth/me
@@ -51,7 +59,7 @@ export const updateMe = asyncHandler(async (req, res) => {
         req.user.addresses = addresses.map((a, i) => ({ ...a, isDefault: i === defaultIdx }));
     }
     await req.user.save();
-    res.json({ success: true, data: req.user });
+    res.json({ success: true, data: await withAccess(req, req.user) });
 });
 
 // PUT /api/auth/password
@@ -63,5 +71,5 @@ export const changePassword = asyncHandler(async (req, res) => {
     await user.setPassword(req.body.newPassword);
     user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
-    authResponse(res, user);
+    await authResponse(req, res, user);
 });

@@ -14,6 +14,7 @@ import * as orders from '../controllers/orderController.js';
 import * as admin from '../controllers/adminController.js';
 import * as inbox from '../controllers/inboxController.js';
 import { uploadMiddleware } from '../services/imageService.js';
+import payrollRoutes from '../payroll/routes.js';
 
 const router = express.Router();
 
@@ -133,5 +134,8 @@ router.get('/admin/dashboard', ...adminOnly, admin.dashboard);
 router.get('/admin/sales', ...adminOnly, admin.salesSeries);
 router.get('/admin/customers', ...adminOnly, admin.listCustomers);
 router.patch('/admin/customers/:id', ...adminOnly, validate(s.adminUserUpdateSchema), admin.updateCustomer);
+
+// ── Payroll & HR module ─────────────────────────────────────
+router.use(payrollRoutes);
 
 export default router;

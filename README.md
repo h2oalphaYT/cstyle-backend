@@ -39,6 +39,9 @@ Requires Node.js 18.18+.
 | `npm run seed:fresh` | Wipe catalog, orders, carts, wishlists, reviews, coupons and banners, then seed. Refuses to run when `NODE_ENV=production` |
 | `npm run db:local` | Run a local MongoDB without installing it (downloads the official MongoDB binary once, keeps data in `.mongo-data/`) |
 | `npm test` | API end-to-end tests (`tests/api.test.js`); needs a running, seeded server |
+| `npm run migrate` | Payroll & HR setup: indexes, built-in roles, settings, leave/OT types, salary components and sample structures. Idempotent (`--update-roles` refreshes built-in role permissions) |
+| `npm run payroll:demo` | Demo company with employees DEMO-A…E and January 2025 attendance (`npm run payroll:demo -- --reset` recreates it) |
+| `npm run test:payroll` | Payroll end-to-end tests; needs a running server after `migrate` |
 
 ## Environment (`.env`)
 
@@ -54,11 +57,18 @@ Requires Node.js 18.18+.
 | `MAX_FILE_SIZE` | Max upload size in bytes (default 5 MB) |
 | `CURRENCY`, `SHIPPING_FEE`, `FREE_SHIPPING_THRESHOLD` | Store pricing rules (LKR) |
 | `SEED_ADMIN_*`, `SEED_CUSTOMER_*` | Accounts created by `npm run seed` |
+| `HR_TZ_OFFSET` | Time zone for attendance days (default `+05:30`) |
+| `HR_FILES_DIR`, `HR_MAX_FILE_SIZE` | Private HR document storage (default `private_files/hr`, 10 MB) |
+| `DEMO_STAFF_PASSWORD` | Password for demo staff logins (development only) |
 
 ### MongoDB setup
 
 * **Local:** `npm run db:local` (no install needed), or install MongoDB Community and use `mongodb://127.0.0.1:27017/cstyle`.
 * **Atlas:** create a cluster, add a database user, allow your IP (or `0.0.0.0/0` for hosted backends) under *Network Access*, then paste the `mongodb+srv://…` string into `MONGODB_URI`. Indexes are created automatically on start-up.
+
+## Payroll & HR
+
+The payroll, HR and attendance module lives in `payroll/` and is documented in [docs/PAYROLL.md](docs/PAYROLL.md).
 
 ## Project structure
 
