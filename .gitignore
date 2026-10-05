@@ -5,3 +5,6 @@ node_modules/
 uploads/
 *.log
 .vscode/
+.env.*
+!.env.example
+.mongo-data/
