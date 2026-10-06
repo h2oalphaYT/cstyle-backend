@@ -26,6 +26,7 @@ const advanceSchema = new mongoose.Schema({
     approvedBy: ref('User'),
     approvedAt: { type: Date, default: null },
     attachments: [attachmentSchema],
+    importBatch: ref('ImportBatch'), // monthly sheet import that created it
 });
 advanceSchema.virtual('balance').get(function balance() {
     return Math.round(((this.totalPayable || this.amount) - this.recovered) * 100) / 100;

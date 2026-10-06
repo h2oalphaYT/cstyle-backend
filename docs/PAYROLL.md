@@ -155,6 +155,18 @@ npm run payroll:demo -- --reset       # recreate the demo data
 npm run test:payroll                  # with the server running
 ```
 
+### Shop staff and the monthly salary sheet
+
+The shop's existing Excel sheet (one row per worker, day columns 1–31, OT / LATE HOURS / SUNDAYS / SUNDY II / ADVANCE / SALARY) is supported directly:
+
+* `npm run import:staff -- private_files/<staff>.json [--check]` adds workers from a JSON list kept in the gitignored `private_files/` folder. It creates the **Shop Staff** group (25-day month, Sunday off), the **SHOP_DAILY** structure and the **SUNDAY_PAY** component. `--check` recalculates the sheet's salaries with the system formulas.
+  * daily rate = basic ÷ 25; pay for days = daily rate × days worked
+  * hourly rate = daily rate ÷ 8; OT = OT hours × hourly rate; late = late hours × hourly rate
+  * Sunday pay = full Sundays × the worker's Sunday rate + extra Sunday hours × round(rate ÷ 8)
+  * no EPF/ETF; fixed-salary staff use an override `BasicSalary`
+* **Excel Import / Export → Import monthly salary sheet**: choose the month, upload the sheet, review, then import. Weekday marks become attendance; OT, Sunday hours, late hours and advances become approved entries for that month. Re-uploading a month replaces the earlier import, and **Undo** removes it while the month is open (`POST /api/attendance/monthly-sheet/validate`, `…/:id/commit`, `…/:id/revert`, `GET /api/attendance/monthly-sheet`).
+* `npm run test:sheet` checks this end to end with temporary employees.
+
 ## 9. Create an admin or payroll user
 
 * Store administrators (`role: admin`) already have every payroll permission. The first admin comes from `npm run seed` (`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`).

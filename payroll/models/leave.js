@@ -91,6 +91,7 @@ const overtimeEntrySchema = new mongoose.Schema({
     approvedBy: ref('User'),
     approvedAt: { type: Date, default: null },
     remarks: { type: String, trim: true, maxlength: 500, default: '' },
+    importBatch: ref('ImportBatch'), // monthly sheet import that created it
 });
 overtimeEntrySchema.index({ employee: 1, date: 1 });
 export const OvertimeEntry = model('OvertimeEntry', overtimeEntrySchema);

@@ -13,7 +13,9 @@
         "test": "node --test tests/api.test.js",
         "migrate": "node scripts/migrate-payroll.js",
         "payroll:demo": "node scripts/seed-payroll-demo.js",
-        "test:payroll": "node --test tests/payroll.test.js"
+        "test:payroll": "node --test tests/payroll.test.js",
+        "test:sheet": "node --test tests/monthly-sheet.test.js",
+        "import:staff": "node scripts/import-staff.js"
     },
     "keywords": [
         "ecommerce",

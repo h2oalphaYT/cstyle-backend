@@ -13,6 +13,7 @@ import { cancelLeave, createLeaveRequest, decideLeave } from '../services/leaveS
 import { deviceFromKey, ingestEvents, processPendingEvents, syncDevice } from '../services/biometricService.js';
 import { attendanceTemplate, readSheet, sendExport, validateAttendanceImport } from '../services/excelService.js';
 import { hrUpload, saveHrFile, sendHrFile, spreadsheetUpload } from '../services/files.js';
+import { commitMonthlySheet, revertMonthlySheet, validateMonthlySheet } from '../services/monthlySheet.js';
 import { assertEmployeePeriodOpen, audit, isValidDay, localTime, round2, today } from '../services/util.js';
 
 const router = express.Router();
@@ -159,6 +160,7 @@ router.post('/attendance/import/:id/commit', protect, can('attendance.import'), 
     const batch = await ImportBatch.findById(req.params.id);
     if (!batch) throw ApiError.notFound('Import not found');
     if (batch.status !== 'validated') throw ApiError.conflict(`This import is already ${batch.status}`);
+    if (batch.kind !== 'attendance') throw ApiError.badRequest('Use the monthly sheet import to confirm this file');
     let imported = 0;
     const failed = [];
     for (const r of batch.rows) {
@@ -188,6 +190,35 @@ router.post('/attendance/import/:id/commit', protect, can('attendance.import'), 
 router.delete('/attendance/import/:id', protect, can('attendance.import'), asyncHandler(async (req, res) => {
     await ImportBatch.updateOne({ _id: req.params.id, status: 'validated' }, { status: 'discarded' });
     res.json({ success: true });
+}));
+
+// ── Monthly salary sheet (day columns 1–31 + monthly totals) ────────
+router.post('/attendance/monthly-sheet/validate', protect, can('attendance.import'), spreadsheetUpload.single('file'), asyncHandler(async (req, res) => {
+    if (!req.file) throw ApiError.badRequest('Upload the sheet in the "file" field');
+    res.status(201).json({ success: true, data: await validateMonthlySheet(req, req.file.buffer, req.file.originalname, req.body.period) });
+}));
+
+router.get('/attendance/monthly-sheet', protect, can('attendance.import'), asyncHandler(async (req, res) => {
+    const rows = await ImportBatch.find({ kind: 'monthly_sheet', status: { $in: ['imported', 'reverted'] } })
+        .select('period fileName status totalRows importedCount importedAt revertedAt').sort({ createdAt: -1 }).limit(50).lean();
+    res.json({ success: true, data: rows.map(r => ({ ...r, id: String(r._id) })) });
+}));
+
+const loadSheetBatch = async (req) => {
+    if (!isObjectId(req.params.id)) throw ApiError.badRequest('Invalid id');
+    const batch = await ImportBatch.findOne({ _id: req.params.id, kind: 'monthly_sheet' });
+    if (!batch) throw ApiError.notFound('Import not found');
+    return batch;
+};
+
+router.post('/attendance/monthly-sheet/:id/commit', protect, can('attendance.import'), asyncHandler(async (req, res) => {
+    const result = await commitMonthlySheet(req, await loadSheetBatch(req));
+    res.json({ success: true, message: `${result.imported} employee(s) imported`, data: result });
+}));
+
+router.post('/attendance/monthly-sheet/:id/revert', protect, can('attendance.import'), asyncHandler(async (req, res) => {
+    const result = await revertMonthlySheet(req, await loadSheetBatch(req));
+    res.json({ success: true, message: `Import undone; ${result.removed} attendance record(s) removed`, data: result });
 }));
 
 // ── Biometric events ────────────────────────────────────────────────

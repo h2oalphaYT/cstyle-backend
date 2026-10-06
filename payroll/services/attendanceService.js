@@ -60,6 +60,8 @@ export const computeAttendance = (input, settings, { holiday = null, offDay = fa
         const early = minutesOf(settings.workdayEnd) - minutesOf(localTime(checkOut));
         if (early > (settings.earlyLeaveGraceMinutes || 0)) out.earlyLeaveMinutes = early;
     }
+    // Without clock times, late minutes may be given directly (e.g. monthly sheet totals).
+    if (!checkIn && input.lateMinutes != null) out.lateMinutes = Math.max(0, Math.round(Number(input.lateMinutes) || 0));
 
     if (holiday || offDay) {
         out.lateMinutes = 0;

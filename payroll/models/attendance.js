@@ -75,9 +75,10 @@ export const BiometricDevice = model('BiometricDevice', biometricDeviceSchema);
 
 /** Excel / CSV attendance import kept between "validate" and "confirm". */
 const importBatchSchema = new mongoose.Schema({
-    kind: { type: String, enum: ['attendance'], default: 'attendance' },
+    kind: { type: String, enum: ['attendance', 'monthly_sheet'], default: 'attendance' },
+    period: { type: String, default: null }, // monthly_sheet imports
     fileName: { type: String, default: '' },
-    status: { type: String, enum: ['validated', 'imported', 'discarded'], default: 'validated' },
+    status: { type: String, enum: ['validated', 'imported', 'discarded', 'reverted'], default: 'validated' },
     totalRows: { type: Number, default: 0 },
     validRows: { type: Number, default: 0 },
     errorRows: { type: Number, default: 0 },
@@ -85,5 +86,6 @@ const importBatchSchema = new mongoose.Schema({
     rows: [{ _id: false, row: Number, data: mongoose.Schema.Types.Mixed, problems: [String], warnings: [String] }],
     importedCount: { type: Number, default: 0 },
     importedAt: { type: Date, default: null },
+    revertedAt: { type: Date, default: null },
 });
 export const ImportBatch = model('ImportBatch', importBatchSchema, { softDelete: false });
