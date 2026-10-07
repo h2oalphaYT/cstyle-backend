@@ -1,0 +1,12 @@
+node_modules
+.git
+.env
+.env.*
+!.env.example
+uploads
+private_files
+.mongo-data
+*.log
+.vscode
+tests
+docs

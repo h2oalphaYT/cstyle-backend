@@ -20,6 +20,7 @@ import Counter from '../models/Counter.js';
 import { reserveStock } from '../services/inventoryService.js';
 
 const fresh = process.argv.includes('--fresh');
+const adminOnly = process.argv.includes('--admin-only');
 
 const C = {
     white: { name: 'White', hex: '#F2F0EB' },
@@ -269,13 +270,14 @@ const run = async () => {
         email: process.env.SEED_ADMIN_EMAIL, password: process.env.SEED_ADMIN_PASSWORD,
         name: 'CStyle Admin', role: 'admin',
     });
-    const customer = await upsertUser({
+    const customer = adminOnly ? null : await upsertUser({
         email: process.env.SEED_CUSTOMER_EMAIL, password: process.env.SEED_CUSTOMER_PASSWORD,
         name: 'Nimal Perera', role: 'customer', phone: '+94 77 123 4567',
     });
     if (!admin) console.warn('⚠️  SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD not set — no admin account created.');
     else console.log(`👤 Admin ${admin.user.email} ${admin.created ? 'created' : 'already exists'}`);
     if (customer) console.log(`👤 Customer ${customer.user.email} ${customer.created ? 'created' : 'already exists'}`);
+    if (adminOnly) return;
 
     // ── Categories ──
     const catBySlug = {};

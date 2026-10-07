@@ -1,0 +1,24 @@
+# CStyle API for a single server. The database is MongoDB Atlas (MONGODB_URI in .env).
+#   docker compose up -d --build
+# The API listens on 127.0.0.1:5000 only; Nginx on the host serves it publicly
+# over HTTPS (see deploy/nginx-api.conf).
+
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      UPLOAD_DIR: /app/uploads
+      HR_FILES_DIR: /app/private_files/hr
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - uploads:/app/uploads
+      - hr-files:/app/private_files
+
+volumes:
+  uploads:
+  hr-files:

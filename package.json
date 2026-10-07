@@ -9,6 +9,7 @@
         "dev": "nodemon --ignore uploads/ --ignore .mongo-data/ server.js",
         "seed": "node scripts/seed.js",
         "seed:fresh": "node scripts/seed.js --fresh",
+        "seed:admin": "node scripts/seed.js --admin-only",
         "db:local": "node scripts/db-local.js",
         "test": "node --test tests/api.test.js",
         "migrate": "node scripts/migrate-payroll.js",
