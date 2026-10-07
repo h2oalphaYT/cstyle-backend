@@ -43,7 +43,7 @@ router.use('/hr/lookups', crudRouter(HrLookup, {
 }));
 router.use('/hr/holidays', crudRouter(Holiday, {
     entity: 'Holiday', read: ANY_HR, write: ['settings.manage', 'attendance.edit'], sort: { date: 1 }, search: ['name', 'date'],
-    fields: ['date', 'name', 'type', 'paid', 'orgUnits'], label: d => `${d.date} ${d.name}`,
+    filters: ['type', 'observed', 'poya'], fields: ['date', 'name', 'type', 'paid', 'categories', 'poya', 'observed', 'orgUnits'], label: d => `${d.date} ${d.name}`,
 }));
 
 // ── Leave & overtime types ─────────────────────────────────────────

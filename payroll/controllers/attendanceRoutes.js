@@ -9,7 +9,7 @@ import {
 import { can, hasPermission, loadAccess } from '../permissions.js';
 import { canSeeEmployee, scopeFilter } from '../services/scope.js';
 import { upsertAttendance } from '../services/attendanceService.js';
-import { cancelLeave, createLeaveRequest, decideLeave } from '../services/leaveService.js';
+import { cancelLeave, createLeaveRequest, decideLeave, leaveByMonth, leavePreview } from '../services/leaveService.js';
 import { deviceFromKey, ingestEvents, processPendingEvents, syncDevice } from '../services/biometricService.js';
 import { attendanceTemplate, readSheet, sendExport, validateAttendanceImport } from '../services/excelService.js';
 import { hrUpload, saveHrFile, sendHrFile, spreadsheetUpload } from '../services/files.js';
@@ -378,7 +378,40 @@ router.get('/leave-requests', protect, can('leave.view', 'leave.request'), async
             .sort({ createdAt: -1 }).skip(skip).limit(limit),
         LeaveRequest.countDocuments(sq),
     ]);
-    res.json({ success: true, data: rows, pagination: paginationMeta(page, limit, total) });
+    // Each row carries the employee's leave count for the month the leave starts in.
+    const groups = new Map();
+    for (const r of rows) {
+        if (!r.employee?._id) continue;
+        const key = String(r.employee._id);
+        if (!groups.has(key)) groups.set(key, { employee: r.employee, months: new Set() });
+        groups.get(key).months.add(r.fromDate.slice(0, 7));
+    }
+    const usage = new Map();
+    for (const [key, g] of groups) {
+        const employee = await Employee.findById(key).select('company group workingDaysPerMonth workingHoursPerDay').lean();
+        if (!employee) continue;
+        for (const [month, u] of await leaveByMonth(employee, [...g.months])) usage.set(`${key}:${month}`, { month, ...u, total: round2(u.paid + u.noPay) });
+    }
+    const data = rows.map(r => ({ ...r.toJSON(), monthLeave: usage.get(`${r.employee?._id}:${r.fromDate.slice(0, 7)}`) || null }));
+    res.json({ success: true, data, pagination: paginationMeta(page, limit, total) });
+}));
+
+/** Before submitting: how many days, how many are no-pay and why, and the employee's leave count for the month. */
+router.post('/leave-requests/preview', protect, can('leave.request', 'leave.approve'), asyncHandler(async (req, res) => {
+    await loadAccess(req);
+    const { leaveType: typeId, fromDate, halfDay: rawHalf } = req.body || {};
+    const halfDay = rawHalf === true || rawHalf === 'true';
+    const toDate = halfDay ? fromDate : (req.body?.toDate || fromDate);
+    const employeeId = req.body?.employee || req.user.employee;
+    if (!employeeId || !isObjectId(String(employeeId))) throw ApiError.unprocessable('Choose an employee');
+    if (!hasPermission(req, 'leave.approve') && String(employeeId) !== String(req.user.employee)) throw ApiError.forbidden('You can only check your own leave');
+    if (!(await canSeeEmployee(req, employeeId))) throw ApiError.notFound('Employee not found');
+    if (!isValidDay(fromDate) || !isValidDay(toDate) || toDate < fromDate) throw ApiError.unprocessable('Invalid leave dates');
+    if (!isObjectId(String(typeId))) throw ApiError.unprocessable('Choose a leave type');
+    const employee = await Employee.findOne({ _id: employeeId, deletedAt: null }).lean();
+    const type = await LeaveType.findOne({ _id: typeId, active: true, deletedAt: null });
+    if (!employee || !type) throw ApiError.notFound('Employee or leave type not found');
+    res.json({ success: true, data: await leavePreview(employee, type, { fromDate, toDate, halfDay }) });
 }));
 
 router.post('/leave-requests', protect, can('leave.request', 'leave.approve'), hrUpload.array('documents', 3), asyncHandler(async (req, res) => {

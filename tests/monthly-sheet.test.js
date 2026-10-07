@@ -88,7 +88,7 @@ before(async () => {
         M.SalaryComponent.findOne({ code: 'SUNDAY_PAY', deletedAt: null }), M.SalaryComponent.findOne({ code: 'BASIC', deletedAt: null }),
     ]);
     assert.ok(structure && group && sunday, 'Run scripts/import-staff.js first (SHOP_DAILY structure and Shop Staff group)');
-    if (!(await M.Holiday.exists({ date: HOLIDAY, deletedAt: null }))) createdHoliday = await M.Holiday.create({ date: HOLIDAY, name: 'Poya (test)' });
+    if (!(await M.Holiday.exists({ date: HOLIDAY, deletedAt: null, ...M.OBSERVED }))) createdHoliday = await M.Holiday.create({ date: HOLIDAY, name: 'Poya (test)' });
     for (const s of STAFF) {
         const emp = await M.Employee.create({
             employeeCode: s.code, fullName: s.name, joiningDate: new Date('2025-01-01T00:00:00Z'), group: group._id, paymentMethod: 'cash',

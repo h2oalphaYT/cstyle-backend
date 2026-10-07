@@ -1,6 +1,6 @@
 import {
     Advance, Attendance, EmployeeSalary, ExternalPayment, Holiday, Installment, OvertimeEntry, OvertimeType,
-    PayrollAdjustment, PayrollEntry, SalaryComponent, SalaryStructure, TaxTable,
+    PayrollAdjustment, PayrollEntry, SalaryComponent, SalaryStructure, TaxTable, OBSERVED,
 } from '../models/index.js';
 import { evaluate, FormulaError } from './formulaEngine.js';
 import { resolveSettings } from './settingsService.js';
@@ -141,7 +141,7 @@ export const calculateEmployeePayroll = async (employee, period, ctx = {}) => {
 
     cache.holidays ??= new Map();
     if (!cache.holidays.has(code)) {
-        cache.holidays.set(code, await Holiday.find({ date: { $gte: start, $lte: end }, deletedAt: null }).lean());
+        cache.holidays.set(code, await Holiday.find({ date: { $gte: start, $lte: end }, deletedAt: null, ...OBSERVED }).lean());
     }
     const holidays = cache.holidays.get(code).filter(h => !h.orgUnits?.length
         || h.orgUnits.map(String).some(u => [employee.company, employee.branch, employee.hub, employee.location].filter(Boolean).map(x => String(x._id || x)).includes(u)));

@@ -27,7 +27,9 @@ export const DEFAULT_SETTINGS = {
     nicPattern: '^([0-9]{9}[VvXx]|[0-9]{12})$', // Sri Lankan NIC (old or new format)
     bankAccountPattern: '^[0-9]{6,20}$',
     requireBankForBankTransfer: true,
-    allowLeaveBeyondBalance: false,
+    allowLeaveBeyondBalance: false, // true = leave beyond the balance is still paid (balance goes negative)
+    excessLeaveAsNoPay: true, // otherwise leave beyond the balance becomes no-pay; false = such requests are refused
+    monthlyPaidLeaveLimit: 0, // paid leave days allowed per calendar month; the rest becomes no-pay (0 = no monthly limit)
     leaveYearStartMonth: 1,
     epfEmployeeRate: 8,
     epfEmployerRate: 12,
@@ -36,6 +38,11 @@ export const DEFAULT_SETTINGS = {
     companyName: 'CStyle',
     companyAddress: '',
     payslipFooter: 'This is a computer-generated payslip.',
+    dailyProductionTarget: 120, // finished pieces per day shown on the factory board
+    productionItem: 'pieces', // what is counted, e.g. "pants"
+    productionShiftStart: '08:00', // the board's hour-by-hour chart runs from start to end
+    productionShiftEnd: '17:00',
+    productionBoardMessage: 'Every piece counts. Together we hit the target!',
 };
 
 export const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);

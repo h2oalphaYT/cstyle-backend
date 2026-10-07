@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import ApiError from '../../utils/ApiError.js';
-import { Advance, Attendance, Employee, Holiday, ImportBatch, Installment, OvertimeEntry, OvertimeType } from '../models/index.js';
+import { Advance, Attendance, Employee, Holiday, ImportBatch, Installment, OBSERVED, OvertimeEntry, OvertimeType } from '../models/index.js';
 import { upsertAttendance } from './attendanceService.js';
 import { assertEmployeePeriodOpen, audit, eachDay, periodBounds, round2, weekday } from './util.js';
 
@@ -80,7 +80,7 @@ export const validateMonthlySheet = async (req, buffer, fileName, period) => {
 
     const { start, end } = periodBounds(period);
     const dates = new Set(eachDay(start, end));
-    const holidays = new Set((await Holiday.find({ date: { $gte: start, $lte: end }, deletedAt: null }).lean()).map(h => h.date));
+    const holidays = new Set((await Holiday.find({ date: { $gte: start, $lte: end }, deletedAt: null, ...OBSERVED }).lean()).map(h => h.date));
     const employees = await Employee.find({ deletedAt: null }).populate('group', 'settings').lean();
     const byCode = new Map(employees.map(e => [e.employeeCode, e]));
     const byName = new Map(employees.map(e => [norm(e.fullName), e]));

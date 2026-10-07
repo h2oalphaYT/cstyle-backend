@@ -200,7 +200,33 @@ The shop's existing Excel sheet (one row per worker, day columns 1–31, OT / LA
 * Raw punches are stored in `AttendanceEvent` first. **Process pending** (or the automatic processing after each push) removes duplicates within the device's window, maps users to employees and builds attendance with late/early/OT using the same rules as manual entry. Manually entered or corrected attendance is never overwritten. Unmatched punches stay pending until a mapping is added.
 * **Pull adapters** (e.g. ZKTeco over TCP) plug into `ADAPTERS` in `payroll/services/biometricService.js`: implement `pull(device, since)` returning events and they flow through the same pipeline via **Sync** (`POST /api/biometric/sync`). The ZKTeco adapter is a stub today.
 
-## 13. Remaining TODOs
+## 13. Garment factory: leave, holidays, roles and daily target
+
+**One-time setup on the server** (both are safe to repeat and only add what is missing):
+
+```bash
+docker compose exec -T api npm run setup:garment          # roles + Sri Lanka holidays for this year and next
+docker compose exec -T api npm run payroll:remove-demo     # shows what demo data would be removed
+docker compose exec -T api npm run payroll:remove-demo -- --yes
+docker compose exec -T api npm run migrate -- --update-roles   # optional: built-in roles get the production permissions (resets their permission edits)
+```
+
+* **Roles.** `setup:garment` adds CEO, Factory Manager, Supervisor, Quality Checker, Cutter, Machine Operator, Ironer / Packer and Helper as designations (job title) and employee groups (pay rules per role, default structure *Monthly Office Salary*). Edit or add more under Organization → Designations and People → Employee Groups. The migration also adds two back-office roles: *Factory Manager* and *Production Board (TV)* (can only open the target board).
+* **Demo data.** `payroll:remove-demo` deletes only the DEMO-* employees and the "DEMO …" company, groups, holiday, device, demo payroll and @demo.cstyle.lk logins. It refuses, and says why, while any real employee or payroll still points at demo data. Admin users, products and orders are never touched. Deploys never run it.
+* **Leave.** While a leave request is filled in, the form shows the employee's leave count for that month and whether the request is paid or no-pay, and why. Rules (Payroll Settings → Working time & attendance): an unpaid leave type is always no-pay; days beyond the remaining balance become no-pay (*Leave beyond balance becomes no-pay*, on by default; turn it off to refuse such requests instead); *Paid leave days per month* (0 = no limit) makes extra days in a month no-pay. No-pay days are not taken from the balance and payroll deducts them through the NOPAY component. The Leave list shows each request's paid/no-pay split and the employee's leave total for the month.
+* **Holidays.** The Sri Lanka gazette for 2026 and 2027 (public, bank, mercantile, all Poya days) is in `payroll/data/sriLankaHolidays.js`; add the next year there when it is published. Every holiday has a *Factory closed* switch: closed days are not working days for attendance, leave and payroll (work on them is holiday OT); days switched to *Working* stay on the calendar only. `setup:garment -- --mercantile-only` closes only on mercantile holidays.
+* **Daily target.** Production → Daily Target: supervisors add finished pieces through the day (+5/+10/+20/+50 or a number), managers set the default target (120) and a different target for a single day. **Factory TV Board** (`/factory-board`) is a full-screen page for the floor TV: pieces done vs target, pace, hour-by-hour output, the week, the streak of days on target and the next holiday. It refreshes every 30 seconds and keeps the screen awake. Log the TV in with a user that has the *Production Board (TV)* role.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /leave-requests/preview` | Days, paid / no-pay split and reason, month leave count, balance |
+| `GET /production/board?date` | Everything the TV board shows |
+| `GET /production/summary?from&to` | Target vs achieved per day |
+| `GET/POST /production/logs`, `DELETE /production/logs/:id` | Finished pieces |
+| `GET /production/targets`, `PUT/DELETE /production/targets/:date` | A day's own target |
+| `GET/PUT /production/settings` | Default target, item name, shift hours, TV message |
+
+## 14. Remaining TODOs
 
 * ZKTeco/other SDK pull adapters (only the stub exists) and a scheduled sync job.
 * The sample APIT tax table is inactive. Load the current Inland Revenue brackets and activate the `TAX` component before using it.
