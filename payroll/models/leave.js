@@ -49,6 +49,11 @@ const leaveRequestSchema = new mongoose.Schema({
     toDate: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
     halfDay: { type: Boolean, default: false },
     days: { type: Number, min: 0, required: true },
+    // How the days split between paid leave and no-pay (decided when the request is made; see leaveService.leavePreview).
+    paidDays: { type: Number, min: 0, default: null },
+    noPayDays: { type: Number, min: 0, default: 0 },
+    noPayDates: [{ type: String, match: /^\d{4}-\d{2}-\d{2}$/ }],
+    noPayReason: { type: String, trim: true, maxlength: 300, default: '' },
     reason: { type: String, trim: true, maxlength: 1000, default: '' },
     status: { type: String, enum: LEAVE_STATUSES, default: 'pending', index: true },
     approvals: [{

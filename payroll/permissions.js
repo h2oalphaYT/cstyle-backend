@@ -48,6 +48,9 @@ export const PERMISSIONS = {
     'settings.manage': 'Manage payroll settings',
     'roles.manage': 'Manage staff roles and back-office users',
     'audit.view': 'View payroll audit log',
+    'production.view': 'View daily production and the factory target board',
+    'production.edit': 'Record finished pieces',
+    'production.manage': 'Set daily production targets',
 };
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSIONS);
@@ -85,8 +88,15 @@ export const DEFAULT_ROLES = [
     {
         code: 'SUPERVISOR', name: 'Supervisor', dataScope: 'team',
         permissions: ['employee.view', 'attendance.view', 'attendance.edit', 'leave.view', 'leave.request', 'leave.approve.supervisor',
-            'overtime.view', 'overtime.edit', 'payslip.view.own'],
+            'overtime.view', 'overtime.edit', 'payslip.view.own', 'production.view', 'production.edit'],
     },
+    {
+        code: 'FACTORY_MANAGER', name: 'Factory Manager', dataScope: 'all',
+        permissions: ['hr.dashboard.view', 'employee.view', 'attendance.view', 'attendance.edit', 'leave.view', 'leave.request', 'leave.approve',
+            'overtime.view', 'overtime.edit', 'overtime.approve', 'reports.view', 'payslip.view.own', 'production.view', 'production.edit', 'production.manage'],
+    },
+    // A login for the factory TV: it can only open the target board.
+    { code: 'PRODUCTION_BOARD', name: 'Production Board (TV)', dataScope: 'own', permissions: ['production.view'] },
     { code: 'EMPLOYEE', name: 'Employee', dataScope: 'own', permissions: ['leave.request', 'payslip.view.own'] },
 ];
 

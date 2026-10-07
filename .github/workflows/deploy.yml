@@ -58,6 +58,7 @@ jobs:
 
       - run: npm test
       - run: npm run test:payroll
+      - run: npm run test:garment
 
       - name: Build the Docker image
         run: docker build -t cstyle-api .

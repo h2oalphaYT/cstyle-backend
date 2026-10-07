@@ -1,5 +1,5 @@
 import ApiError from '../../utils/ApiError.js';
-import { Attendance, Employee, Holiday, OvertimeEntry, OvertimeType } from '../models/index.js';
+import { Attendance, Employee, Holiday, OBSERVED, OvertimeEntry, OvertimeType } from '../models/index.js';
 import { resolveSettings } from './settingsService.js';
 import { assertEmployeePeriodOpen, audit, isValidDay, localTime, round2, TIME_RE, toDateTime, weekday } from './util.js';
 
@@ -11,7 +11,7 @@ const minutesOf = (hhmm) => {
 };
 
 export const isHoliday = async (day, employee) => {
-    const holidays = await Holiday.find({ date: day, deletedAt: null }).lean();
+    const holidays = await Holiday.find({ date: day, deletedAt: null, ...OBSERVED }).lean();
     return holidays.find(h => !h.orgUnits?.length || h.orgUnits.some(u => [employee?.branch, employee?.hub, employee?.company, employee?.location]
         .filter(Boolean).map(String).includes(String(u)))) || null;
 };

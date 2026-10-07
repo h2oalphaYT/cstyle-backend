@@ -67,7 +67,15 @@ const holidaySchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true, maxlength: 120 },
     type: { type: String, enum: ['public', 'mercantile', 'bank', 'company', 'other'], default: 'public' },
     paid: { type: Boolean, default: true },
+    // Gazetted categories (Sri Lanka marks each day as public, bank and/or mercantile).
+    categories: [{ type: String, enum: ['public', 'bank', 'mercantile'] }],
+    poya: { type: Boolean, default: false },
+    // false = shown on the holiday calendar only; it is a normal working day for attendance, leave and payroll.
+    observed: { type: Boolean, default: true },
     orgUnits: [{ type: mongoose.Schema.Types.ObjectId, ref: 'OrgUnit' }], // empty = everyone
 });
 holidaySchema.index({ date: 1 });
+
+/** Holidays the business closes for. Older records have no `observed` flag and count as observed. */
+export const OBSERVED = { observed: { $ne: false } };
 export const Holiday = model('Holiday', holidaySchema);
