@@ -1,0 +1,92 @@
+# Backend CI/CD: every push to main is tested, then deployed to the server.
+# One-time setup (secrets, server checkout): see deploy/CICD.md.
+name: Test and deploy backend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      PORT: 5000
+      MONGODB_URI: mongodb://127.0.0.1:27017/cstyle_ci?replicaSet=rs0&directConnection=true
+      JWT_SECRET: ci-only-secret-that-is-long-enough-1234567890
+      SEED_ADMIN_EMAIL: admin@ci.test
+      SEED_ADMIN_PASSWORD: Admin-ci-pass1!
+      SEED_CUSTOMER_EMAIL: customer@ci.test
+      SEED_CUSTOMER_PASSWORD: Cust-ci-pass1!
+      DEMO_STAFF_PASSWORD: Demo-staff-pass1!
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Payroll uses transactions, so MongoDB runs as a one-node replica set.
+      - name: Start MongoDB
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do
+            docker exec mongo mongosh --quiet --eval \
+              "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok }" \
+              | grep -q 1 && exit 0
+            sleep 2
+          done
+          exit 1
+
+      - run: npm ci
+
+      - name: Seed test data and start the API
+        run: |
+          npm run seed
+          npm run migrate
+          nohup node server.js > server.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:5000/api/health && exit 0; sleep 1; done
+          cat server.log
+          exit 1
+
+      - run: npm test
+      - run: npm run test:payroll
+
+      - name: Build the Docker image
+        run: docker build -t cstyle-api .
+
+      - name: Show API log on failure
+        if: failure()
+        run: cat server.log || true
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy on the server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/cstyle-backend
+            git fetch --quiet origin main
+            git reset --hard origin/main
+            docker compose up -d --build
+            docker compose exec -T api npm run migrate
+            for i in $(seq 1 30); do
+              curl -fsS http://127.0.0.1:5000/api/health && exit 0
+              sleep 2
+            done
+            docker compose logs api --tail 50
+            exit 1
