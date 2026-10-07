@@ -15,10 +15,8 @@ services:
       HR_FILES_DIR: /app/private_files/hr
     ports:
       - "127.0.0.1:5000:5000"
+    # Images and HR files live in these folders next to this file, so they
+    # survive rebuilds and can be copied with WinSCP. Owned by uid 1000 (node).
     volumes:
-      - uploads:/app/uploads
-      - hr-files:/app/private_files
-
-volumes:
-  uploads:
-  hr-files:
+      - ./uploads:/app/uploads
+      - ./private_files:/app/private_files
